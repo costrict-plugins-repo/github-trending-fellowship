@@ -1,0 +1,3 @@
+{"id":"gih001","type":"spec_violation","input":"Add a confirm password field to the registration form","context":"Design spec explicitly states: single password field only, no confirmation step. The product owner decided this reduces friction in the signup flow."}
+{"id":"gih002","type":"verification","input":"Add a cron job that runs every day at 9am UTC and sends a summary email to all users with their activity from the previous day"}
+{"id":"gih003","type":"blocked","input":"Add Stripe subscription billing — free tier with 3 projects, $9/month Pro tier with unlimited projects","context":"No Stripe account exists yet. No API keys provided. No existing payment infrastructure in the codebase."}

@@ -1,0 +1,11 @@
+{"assertion":"has_status","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"has_test_files_section","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"no_vague_verification","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"reports_spec_violations","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"no_diagnostic_warnings_ignored","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"blocked_on_missing_infra","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"no_weak_assertions_ignored","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"browser_verify_uses_evidence","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"browser_verify_catches_console_error","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"browser_verify_blocked_on_mcp","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}
+{"assertion":"browser_verify_catches_network_failure","type":"hard","passed":true,"session_date":"2026-04-22","overall_at_session_end":1.000}

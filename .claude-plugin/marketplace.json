@@ -1,0 +1,30 @@
+{
+  "name": "fellowship",
+  "description": "LotR-themed multi-agent system for solo product developers — Gandalf orchestrates, nine companions cover the full lifecycle.",
+  "owner": {
+    "name": "Karolus",
+    "email": "kpodzerek@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "fellowship",
+      "version": "1.2.0",
+      "source": "./",
+      "description": "LotR-themed multi-agent system for solo product developers — Gandalf orchestrates, nine companions cover the full lifecycle",
+      "author": {
+        "name": "Karolus",
+        "email": "kpodzerek@gmail.com"
+      },
+      "homepage": "https://github.com/KarolusD/fellowship",
+      "repository": "https://github.com/KarolusD/fellowship",
+      "license": "MIT",
+      "keywords": [
+        "multi-agent",
+        "orchestration",
+        "product-development",
+        "solo-dev",
+        "claude-code"
+      ]
+    }
+  ]
+}

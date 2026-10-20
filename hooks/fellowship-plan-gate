@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper for run-hook.cmd: delegates to fellowship-plan-gate.mjs via node.
+# Pipes stdin through so the JS script receives the PreToolUse hook payload.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec node "${SCRIPT_DIR}/fellowship-plan-gate.mjs"

@@ -1,0 +1,18 @@
+{
+  "name": "fellowship",
+  "displayName": "Fellowship",
+  "description": "A LotR-themed multi-agent system for solo product developers — Gandalf orchestrates, nine companions cover the full lifecycle.",
+  "version": "1.2.0",
+  "author": {
+    "name": "Karolus",
+    "email": "kpodzerek@gmail.com"
+  },
+  "homepage": "https://github.com/KarolusD/fellowship",
+  "repository": "https://github.com/KarolusD/fellowship",
+  "license": "MIT",
+  "keywords": ["multi-agent", "orchestration", "product-development", "solo-dev", "claude-code", "cursor"],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks-cursor.json"
+}

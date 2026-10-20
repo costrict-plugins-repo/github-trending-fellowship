@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper for run-hook.cmd: delegates to fellowship-session-end.mjs via node.
+# Pipes stdin through so the JS script receives the hook payload.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec node "${SCRIPT_DIR}/fellowship-session-end.mjs"

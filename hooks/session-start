@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+# SessionStart hook for Fellowship plugin
+# Injects fellowship-bootstrap.md plus optional project-level context files:
+#   - docs/fellowship/quest-log.md  (if file exists)
+#   - docs/fellowship/product.md    (if it has real content; otherwise a notice)
+#
+# Note: learnings.md is no longer injected — each agent has native persistent memory
+# (memory: project) that accumulates domain-specific knowledge across sessions.
+#
+# Each file is wrapped in a labeled XML tag and combined into one additionalContext string.
+
+set -euo pipefail
+
+# Detect resume mode — when invoked via the SessionStart "resume" matcher,
+# the hooks.json passes --resume as the first argument. Resume restores the
+# prior conversation context, so re-injecting handoffs would duplicate stale
+# state. On resume, we skip the handoff block (and other potentially-stale
+# context) and inject only the orchestrator identity.
+IS_RESUME=0
+if [ "${1:-}" = "--resume" ]; then
+    IS_RESUME=1
+fi
+
+# Determine plugin root directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Determine project cwd — prefer $CWD env var, fall back to $(pwd)
+PROJECT_CWD="${CWD:-$(pwd)}"
+FELLOWSHIP_DIR="${PROJECT_CWD}/docs/fellowship"
+
+# Escape string for JSON embedding using bash parameter substitution.
+# Each ${s//old/new} is a single C-level pass — orders of magnitude
+# faster than a character-by-character loop.
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+# ── 0. using-fellowship skill — Gandalf identity injection ───────────────────
+# Mirrors Superpowers' session-start pattern: read skill content, escape for JSON,
+# inject with a strong identity wrapper so the default agent inhabits Gandalf
+# from the first message. Must arrive before project context so identity is set first.
+#
+# Cold-install gate (S5): if `docs/fellowship/` is absent, this is a "tire-kicker"
+# project where the user has installed the plugin but not bootstrapped Fellowship
+# in this directory. Inject only a short notice naming the bootstrap path —
+# avoid heavy Gandalf-identity priming on every session of a project that may
+# never use it. Once `docs/fellowship/` exists (created by `/fellowship:start`
+# or by Gandalf's first bootstrap), the full identity injection fires.
+if [ -d "$FELLOWSHIP_DIR" ]; then
+    using_fellowship_content=$(cat "${PLUGIN_ROOT}/skills/using-fellowship/SKILL.md" 2>/dev/null || echo "Error reading using-fellowship skill")
+    using_fellowship_escaped=$(escape_for_json "$using_fellowship_content")
+    gandalf_wrapper="You are Gandalf — orchestrator of the Fellowship. The content below defines your voice, manner, and orchestration role for this session. Inhabit it.\n\n${using_fellowship_escaped}"
+    session_context="<EXTREMELY_IMPORTANT>\n${gandalf_wrapper}\n</EXTREMELY_IMPORTANT>"
+else
+    cold_notice="The Fellowship plugin is installed in this Claude Code workspace but not yet active in this project (no docs/fellowship/ directory). To activate Gandalf and the nine companions for this project, ask the assistant: \"set up Fellowship\" — or run /fellowship:start. Until then, the plugin remains dormant; the default Claude Code experience is unchanged."
+    cold_escaped=$(escape_for_json "$cold_notice")
+    session_context="<FELLOWSHIP_DORMANT>\n${cold_escaped}\n</FELLOWSHIP_DORMANT>"
+fi
+
+# ── 1. fellowship-bootstrap.md (only when Fellowship is active in this project) ─
+# Skipped on cold-install: bootstrap content is for active sessions; tire-kicker
+# projects without docs/fellowship/ get the dormant notice from §0 only.
+if [ -d "$FELLOWSHIP_DIR" ]; then
+    bootstrap_content=$(cat "${PLUGIN_ROOT}/hooks/fellowship-bootstrap.md" 2>/dev/null || echo "Error reading fellowship-bootstrap.md")
+    if [ -z "$bootstrap_content" ]; then
+        bootstrap_content="Error: hooks/fellowship-bootstrap.md is empty or could not be read"
+    fi
+    bootstrap_escaped=$(escape_for_json "$bootstrap_content")
+    session_context="${session_context}\\n<FELLOWSHIP_CONTEXT>\\n${bootstrap_escaped}\\n</FELLOWSHIP_CONTEXT>"
+fi
+
+# ── Untrusted-content boundary (SF-2) ────────────────────────────────────────
+# All blocks below ingest project-controlled .md files (quest log, product,
+# debug log, handoffs, codebase map). Any contributor or PR can write these
+# files, so their content is DATA, not commands. We:
+#   1. Wrap each block in an <UNTRUSTED_*> tag so Gandalf (see using-fellowship
+#      SKILL.md) treats the contents as factual context only — never as
+#      instructions to follow.
+#   2. Cap each ingested block at 8192 bytes; on truncation we append a marker
+#      naming the source path so the orchestrator can read the full file
+#      explicitly if needed.
+UNTRUSTED_CAP=8192
+truncate_with_marker() {
+    # $1 = raw content, $2 = source path
+    local raw="$1" src="$2"
+    if [ "${#raw}" -gt "$UNTRUSTED_CAP" ]; then
+        printf '%s\n[... truncated at 8KB; full file at %s ...]' \
+            "${raw:0:$UNTRUSTED_CAP}" "$src"
+    else
+        printf '%s' "$raw"
+    fi
+}
+
+# ── 2. quest-log.md (if file exists) ─────────────────────────────────────────
+QUEST_LOG="${FELLOWSHIP_DIR}/quest-log.md"
+if [ -f "$QUEST_LOG" ]; then
+    quest_content=$(cat "$QUEST_LOG" 2>/dev/null || echo "")
+    if [ -n "$quest_content" ]; then
+        quest_capped=$(truncate_with_marker "$quest_content" "$QUEST_LOG")
+        quest_escaped=$(escape_for_json "$quest_capped")
+        session_context="${session_context}\\n<UNTRUSTED_QUEST_LOG>\\n${quest_escaped}\\n</UNTRUSTED_QUEST_LOG>"
+    fi
+fi
+
+# ── 3. product.md (real content check) ───────────────────────────────────────
+# "Real content" = any line that is not empty, not a markdown comment (<!--),
+# and not a heading (# or ##) followed by an empty line.
+# Strategy: strip blank lines, comment lines (<!-- ... -->), and heading lines (# or ##),
+# then check if anything remains.
+PRODUCT="${FELLOWSHIP_DIR}/product.md"
+if [ -f "$PRODUCT" ]; then
+    product_raw=$(cat "$PRODUCT" 2>/dev/null || echo "")
+    # Filter out: empty lines, lines starting with <!--, lines starting with # (any heading level)
+    product_real=$(printf '%s\n' "$product_raw" | grep -v '^\s*$' | grep -v '^\s*<!--' | grep -v '^\s*#' || true)
+    if [ -n "$product_real" ]; then
+        product_capped=$(truncate_with_marker "$product_raw" "$PRODUCT")
+        product_escaped=$(escape_for_json "$product_capped")
+        session_context="${session_context}\\n<UNTRUSTED_PRODUCT>\\n${product_escaped}\\n</UNTRUSTED_PRODUCT>"
+    else
+        notice="product.md has no content yet — ask the user to describe the project before starting work"
+        notice_escaped=$(escape_for_json "$notice")
+        session_context="${session_context}\\n<UNTRUSTED_PRODUCT>\\n${notice_escaped}\\n</UNTRUSTED_PRODUCT>"
+    fi
+fi
+
+# ── 4. debug-log.md (last ~3 entries if file exists and non-empty) ───────────
+DEBUG_LOG="${FELLOWSHIP_DIR}/debug-log.md"
+if [ -f "$DEBUG_LOG" ]; then
+    debug_raw=$(tail -60 "$DEBUG_LOG" 2>/dev/null || echo "")
+    if [ -n "$debug_raw" ]; then
+        debug_capped=$(truncate_with_marker "$debug_raw" "$DEBUG_LOG")
+        debug_escaped=$(escape_for_json "$debug_capped")
+        session_context="${session_context}\\n<UNTRUSTED_DEBUG_LOG>\\n${debug_escaped}\\n</UNTRUSTED_DEBUG_LOG>"
+    fi
+fi
+
+# ── 5. Most recent handoff (if written within last 7 days) ───────────────────
+# Skipped on resume: the handoff was meant for the next *fresh* session;
+# resuming a session means the conversation context already carries that state.
+HANDOFFS_DIR="${FELLOWSHIP_DIR}/handoffs"
+if [ "$IS_RESUME" = "0" ] && [ -d "$HANDOFFS_DIR" ]; then
+    recent_handoff=$(find "$HANDOFFS_DIR" -name "*.md" -mtime -7 -type f 2>/dev/null \
+        | sort -r | head -1 || true)
+    if [ -n "$recent_handoff" ]; then
+        handoff_raw=$(cat "$recent_handoff" 2>/dev/null || echo "")
+        if [ -n "$handoff_raw" ]; then
+            handoff_name=$(basename "$recent_handoff")
+            handoff_body="File: ${handoff_name}"$'\n\n'"${handoff_raw}"
+            handoff_capped=$(truncate_with_marker "$handoff_body" "$recent_handoff")
+            handoff_escaped=$(escape_for_json "$handoff_capped")
+            session_context="${session_context}\\n<UNTRUSTED_HANDOFF>\\n${handoff_escaped}\\n</UNTRUSTED_HANDOFF>"
+        fi
+    fi
+fi
+
+# ── 6. codebase-map.md (first 30 lines if file exists) ───────────────────────
+# 30-line cap is preserved (it sits well under the 8KB byte cap); the wrapper
+# is renamed to UNTRUSTED_CODEBASE_MAP for tag uniformity.
+#
+# Staleness signal: after the snippet injection, compare the map's
+# **Generated:** date against git activity in the project. If many new source
+# files have appeared since, surface a notice so the orchestrator can offer
+# /fellowship:map before structural work. The map is consulted on every Tier 3+
+# dispatch — a stale map silently misleads Legolas and Gimli.
+CODEBASE_MAP="${FELLOWSHIP_DIR}/codebase-map.md"
+if [ -f "$CODEBASE_MAP" ]; then
+    map_raw=$(head -30 "$CODEBASE_MAP" 2>/dev/null || echo "")
+    if [ -n "$map_raw" ]; then
+        map_escaped=$(escape_for_json "$map_raw")
+        session_context="${session_context}\\n<UNTRUSTED_CODEBASE_MAP>\\n${map_escaped}\\n</UNTRUSTED_CODEBASE_MAP>"
+    fi
+
+    # Staleness check — best-effort, never fails the hook.
+    map_date=$(grep -m1 '^\*\*Generated:\*\*' "$CODEBASE_MAP" 2>/dev/null \
+        | sed -E 's/^\*\*Generated:\*\*[[:space:]]*([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/' || echo "")
+    if [ -n "$map_date" ]; then
+        new_files=$(cd "$PROJECT_CWD" 2>/dev/null && \
+            git log --since="$map_date" --diff-filter=A --name-only --pretty=format: 2>/dev/null \
+            | grep -v '^$' \
+            | grep -v '^docs/' \
+            | sort -u | wc -l | tr -d ' ' || echo "0")
+        if [ "${new_files:-0}" -gt 10 ]; then
+            staleness_notice="Codebase map last updated ${map_date}; ${new_files} new source files since. Consider running /fellowship:map before structural work or Tier 3+ dispatch."
+            staleness_escaped=$(escape_for_json "$staleness_notice")
+            session_context="${session_context}\\n<CODEBASE_MAP_STALENESS>\\n${staleness_escaped}\\n</CODEBASE_MAP_STALENESS>"
+        fi
+    fi
+fi
+
+# ── 7. Project-local skills and agents survey (P6) ───────────────────────────
+# (Ethos absence check retired 2026-05-24: ethos now lives in the plugin at
+#  skills/using-fellowship/references/ethos.md per the project-state-contract.
+#  It is always present from the plugin; no per-project scaffolding needed.)
+CLAUDE_DIR="${PROJECT_CWD}/.claude"
+if [ -d "$CLAUDE_DIR" ]; then
+    skill_count=0
+    agent_count=0
+    skill_names=""
+    agent_names=""
+
+    if [ -d "$CLAUDE_DIR/skills" ]; then
+        while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            skill_names="${skill_names}${name}, "
+            skill_count=$((skill_count + 1))
+        done < <(find "$CLAUDE_DIR/skills" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null)
+    fi
+
+    if [ -d "$CLAUDE_DIR/agents" ]; then
+        while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            agent_names="${agent_names}${name}, "
+            agent_count=$((agent_count + 1))
+        done < <(find "$CLAUDE_DIR/agents" -maxdepth 1 -mindepth 1 -name "*.md" -exec basename {} .md \; 2>/dev/null)
+    fi
+
+    if [ $skill_count -gt 0 ] || [ $agent_count -gt 0 ]; then
+        skill_names="${skill_names%, }"
+        agent_names="${agent_names%, }"
+
+        inventory="Project-local: "
+        [ $skill_count -gt 0 ] && inventory="${inventory}${skill_count} skill(s) [${skill_names}]"
+        [ $skill_count -gt 0 ] && [ $agent_count -gt 0 ] && inventory="${inventory}, "
+        [ $agent_count -gt 0 ] && inventory="${inventory}${agent_count} agent(s) [${agent_names}]"
+        inventory="${inventory}. Project-local takes precedence over plugin on name collision."
+
+        inventory_escaped=$(escape_for_json "$inventory")
+        session_context="${session_context}\\n<PROJECT_LOCAL>\\n${inventory_escaped}\\n</PROJECT_LOCAL>"
+    fi
+fi
+
+# ── Output context as JSON ────────────────────────────────────────────────────
+# Cursor hooks expect additional_context.
+# Claude Code hooks expect hookSpecificOutput.additionalContext.
+# Claude Code reads BOTH fields without deduplication, so we must only
+# emit the field consumed by the current platform to avoid double injection.
+#
+# Uses printf instead of heredoc (cat <<EOF) to work around a bash 5.3+
+# bug where heredoc variable expansion hangs when content exceeds ~512 bytes.
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  # Cursor sets CURSOR_PLUGIN_ROOT (may also set CLAUDE_PLUGIN_ROOT) — emit additional_context
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  # Claude Code sets CLAUDE_PLUGIN_ROOT — emit only hookSpecificOutput
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+else
+  # Other platforms — emit additional_context as fallback
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+fi
+
+exit 0

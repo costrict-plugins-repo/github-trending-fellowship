@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Notes</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <h1>Quick Notes</h1>
+
+    <form id="note-form" class="note-form" autocomplete="off">
+      <input
+        type="text"
+        id="note-input"
+        class="note-input"
+        placeholder="Write a note and hit Add"
+        aria-label="Note text"
+      >
+      <button type="submit" id="add-btn" class="add-btn">Add</button>
+    </form>
+
+    <ul id="note-list" class="note-list" aria-live="polite"></ul>
+
+    <p id="empty-state" class="empty-state">No notes yet.</p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

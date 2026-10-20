@@ -1,0 +1,21 @@
+{"id":"gi001","input":"Add a null check to the parseConfig function in src/config.ts"}
+{"id":"gi002","input":"Fix the failing test in tests/auth.test.ts — it errors on undefined user"}
+{"id":"gi003","input":"Add email validation to the user registration form"}
+{"id":"gi004","input":"Refactor the database connection to use a connection pool"}
+{"id":"gi005","input":"Add request logging middleware to all API routes"}
+{"id":"gi006","input":"The signup button is missing a loading state — add one"}
+{"id":"gi007","input":"Extract the payment calculation logic into a separate utility function"}
+{"id":"gi008","input":"Add rate limiting to the /api/auth/login endpoint"}
+{"id":"gi009","input":"Fix the TypeScript error on line 42 of src/handlers/user.ts"}
+{"id":"gi010","input":"Update the README installation steps — step 3 is outdated"}
+{"id":"gi011","type":"urgency","input":"The tests are failing CI — standup is in 20 minutes, I need this fixed now","context":"3 tests failing in tests/auth.test.ts, no context on why"}
+{"id":"gi012","type":"vague_scope","input":"Fix whatever is wrong in the payment module","context":"no spec provided, no error message, no failing test"}
+{"id":"gi013","type":"review_fixes","input":"[Legolas review findings] Critical: SQL injection risk in user search query — unsanitised input passed directly to query string. Important: no rate limiting on /api/auth/login. Minor: unused import in handlers/user.ts","context":"Gimli originally built the user search and login route"}
+{"id":"gi014","type":"large_refactor","input":"Refactor the entire API layer to use a consistent error format — right now every route handles errors differently","context":"12 route files, no existing error format convention, greenfield pattern"}
+{"id":"gi015","type":"conflict","input":"Add user deletion — make it a soft delete that sets a deleted_at timestamp","context":"The existing User model has a hard delete implementation already used in 3 places. No migration plan provided, no spec for how existing callers should behave."}
+{"id":"gi016","type":"review_fix","input":"[Legolas review findings]\nCritical: JWT secret is hardcoded as the string 'supersecret' in src/middleware/auth.ts — must come from environment variable.\nImportant: No test coverage for the token refresh path — only happy path is tested.\nMinor: Unused import on line 3 of auth.ts.","context":"Gimli built the auth middleware in the previous task. These are Legolas's findings to fix."}
+{"id":"gi017","type":"scope","input":"Fix the typo in the error message on line 47 of src/api/users.ts — it says 'Auhentication failed' instead of 'Authentication failed'","context":"While fixing this, Gimli will notice the entire error handling pattern in this file is inconsistent across routes."}
+{"id":"gi018","type":"spec_compliance","input":"Add a POST /api/products endpoint with input validation, error handling, rate limiting, and tests","requirements":["validation","error handling","rate limiting","tests"]}
+{"id":"gi019","type":"spec_compliance","input":"Add a calculateTax utility function","missing_tests":true,"context":"Gimli built the function but did not write any tests for it. Report reads: Status: DONE\n\nWhat was built:\n  Added calculateTax(amount, rate) to src/utils/tax.ts. Returns amount * rate, clamped between 0 and 1.\n\nFiles changed:\n  src/utils/tax.ts (created)\n\nVerification:\n  Ran the app locally — the checkout page calculates tax correctly."}
+{"id":"gi020","type":"spec_compliance","input":"Add a POST /api/orders endpoint with authentication, input validation, and inventory check","requirements":["authentication","input validation","inventory"],"context":"Gimli's report deliberately omits one of the three requirements — used to verify the assertion catches real gaps.\n\nStatus: DONE\n\nWhat was built:\n  Added POST /api/orders. Requires a valid JWT (authentication). Validates required fields: userId, items, shippingAddress (input validation).\n\nFiles changed:\n  src/routes/orders.ts\n\nVerification:\n  npm test — 9 passed, 0 failed"}
+{"id":"gi021","type":"spec_compliance","input":"Add auth middleware with JWT verification, token expiry check, role-based access control, request logging, and error response formatting","requirements":["jwt","expiry","role","logging","error"]}

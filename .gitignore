@@ -1,0 +1,22 @@
+/examples/
+docs/fellowship/archive/legacy/examples/bmad/
+.DS_Store
+__pycache__/
+*.pyc
+.claude/worktrees/
+
+# LEGACY Fellowship hook markers — no longer written here. Session markers
+# moved to ${CLAUDE_CONFIG_DIR:-~/.claude}/fellowship/state/ (see
+# hooks/lib/subagent-detection.mjs); SessionStart migrates and deletes any
+# leftover in-project files. Patterns kept for one release as a transition
+# guard so a stray legacy file from an old plugin version is never tracked.
+# Remove after the release following v1.2.
+.fellowship-main-session
+.fellowship-session-history*
+
+# Voice-persistence eval ephemerals — regenerated every run by
+# evals/voice-persistence/run.mjs. baseline.json is committed; per-run
+# reports are not.
+evals/voice-persistence/last-report.json
+evals/voice-persistence/.last-run.jsonl
+.claude/scratchpad/

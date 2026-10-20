@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wrapper for run-hook.cmd: delegates to fellowship-drift-check-session-start.mjs via node.
+# `exec` replaces this shell with node, so stdin is inherited end-to-end
+# and the JS script receives the SessionStart hook payload Claude Code pipes in.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec node "${SCRIPT_DIR}/fellowship-drift-check-session-start.mjs"

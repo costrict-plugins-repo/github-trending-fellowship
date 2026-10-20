@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "./hooks/session-start"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "./hooks/fellowship-plan-gate",
+        "matcher": "Write",
+        "timeout": 10,
+        "failClosed": false
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "./hooks/fellowship-context-monitor",
+        "timeout": 10,
+        "failClosed": false
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "./hooks/fellowship-session-end"
+      }
+    ]
+  }
+}

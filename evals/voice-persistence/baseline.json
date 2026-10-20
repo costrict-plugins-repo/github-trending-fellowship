@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "established": "2026-05-16",
+    "model": "claude-haiku-4-5",
+    "claude_code_version": "2.1.142",
+    "harness": "claude --print --continue",
+    "notes": "Baseline reflects observed behavior of the then two-layer voice persistence mechanism (SessionStart injection via hooks/fellowship-voice-session-start.mjs + the per-turn UserPromptSubmit anchor) as of the date above. The per-turn Layer 2 hook was removed 2026-06-11 (vp001 showed it cannot push past the additive-prompting ceiling); the SessionStart layer remains. Two scenarios show partial failure today — see findings in last-report.json from the Pippin Round 3 dispatch. Subsequent runs flag regression only if assertions drop BELOW these counts."
+  },
+  "vp001": { "passed": 2, "total": 3 },
+  "vp002": { "passed": 0, "total": 1 },
+  "vp004": { "passed": 0, "total": 1 }
+}
